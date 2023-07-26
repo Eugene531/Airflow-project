@@ -1,15 +1,15 @@
 import sys
 
 from airflowignore_files.etl_process_controller import EtlProcessorController
-from airflowignore_files.conn_to_schem.to_sources import ConnectorToSources
 from airflowignore_files.conn_to_schem.to_dds import ConnectorToDds
-from airflowignore_files.transform_rules.sources_to_dds \
-    import TransformSourcesToDds
+from airflowignore_files.conn_to_schem.to_dm import ConnectorToDm
+from airflowignore_files.transform_rules.dds_to_dm \
+    import TransformDdsToDm
 
 
 def run_etl_process(sources_conn_params: str, writer_conn_params: str) -> None:
     """
-    Запускает процессы Extract, Transform, Load между схемами: 'sources' и 'dds'.
+    Запускает процесс ETL (extract, transform, load) между двумя базами данных.
 
     Входные параметры:
         sources_conn_params: str
@@ -26,9 +26,9 @@ def run_etl_process(sources_conn_params: str, writer_conn_params: str) -> None:
     etl = EtlProcessorController(
         sources_conn_params, 
         writer_conn_params,
-        ConnectorToSources,
         ConnectorToDds,
-        TransformSourcesToDds
+        ConnectorToDm,
+        TransformDdsToDm
         )
     
     # Извлекаем данные из исходной БД.
@@ -49,4 +49,4 @@ if __name__ == '__main__':
     sources_db_conn_params = sys.argv[1]
     writer_db_conn_params = sys.argv[2]
 
-    run_etl_process(sources_db_conn_params, writer_db_conn_params)
+    run_etl_process(writer_db_conn_params, writer_db_conn_params)

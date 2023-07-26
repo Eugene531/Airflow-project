@@ -1,5 +1,5 @@
 import pandas as pd
-from sqlalchemy import Engine, pool, create_engine
+from sqlalchemy import pool, create_engine
 from sqlalchemy.orm import sessionmaker
 
 
@@ -8,7 +8,7 @@ class ConnectorToSources:
     Используется для подключения к БД и выгрузки данных в контексте схемы 'sources'
 
     Для взаимодействия с БД используется менеджер контекстов, например:
-        with ConnectorToSourcesSchema(db_conn_params) as conn
+        with ConnectorToSources(db_conn_params) as conn
 
     Входные параметры:
     db_conn_params: str
@@ -34,16 +34,16 @@ class ConnectorToSources:
             ]
         
     
-    def __enter__(self) -> 'ConnectorToSourcesSchema':
+    def __enter__(self) -> 'ConnectorToSources':
         """
-        Метод для входа в контекст класса 'ConnectorToSourcesSchema'.
+        Метод для входа в контекст класса 'ConnectorToSources'.
 
         Returns
-        Экземпляр класса 'ConnectorToSourcesSchema'
+        Экземпляр класса 'ConnectorToSources'
         """
 
         # Создаем объект сессии (engine) для подключения к БД.
-        self.__engine: Engine = create_engine(self.__db_conn_params)
+        self.__engine = create_engine(self.__db_conn_params)
 
         # Получаем подключение (connection) из объекта сессии (engine)
         self.__conn: pool.base._ConnectionFairy = self.__engine.raw_connection()
@@ -54,7 +54,7 @@ class ConnectorToSources:
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         """
-        Метод для выхода из контекста класса 'ConnectorToSourcesSchema'.
+        Метод для выхода из контекста класса 'ConnectorToSources'.
 
         Входные параметры:
         exc_type:
@@ -69,7 +69,7 @@ class ConnectorToSources:
         self.__conn.close()
         
     
-    def get_tables_data(self) -> dict:
+    def get_raw_data(self) -> dict:
         """
         Метод для получения данных таблиц схемы 'sources'.
 

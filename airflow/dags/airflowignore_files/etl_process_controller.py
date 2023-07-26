@@ -1,23 +1,48 @@
 from typing import Union
 
-from .connectors_to_schem.conn_to_dds import ConnectorToDds
-from .connectors_to_schem.conn_to_sources import ConnectorToSources
-from .connectors_to_schem.conn_to_dm import ConnectorToDm
-from .transform_rules.transform_sources_to_dds import TransformRulesSourcesToDds
-from .transform_rules.transform_dds_to_dm import TransformRulesDdsToDm
+from .conn_to_schem.to_dds import ConnectorToDds
+from .conn_to_schem.to_sources import ConnectorToSources
+from .conn_to_schem.to_dm import ConnectorToDm
+from .transform_rules.sources_to_dds import TransformSourcesToDds
+from .transform_rules.dds_to_dm import TransformDdsToDm
 
 
 class EtlProcessorController:
     """
+    Используется для управления процессами ETL (Extract, Transform, Load)
+
+    Входные параметры:
+    sources_conn_params: str
+        данные для подключения к исходной БД
+    writer_conn_params: str
+        данные для подключения к БД для записи
+    conn_to_sources: Union[ConnectorToDds, ConnectorToSources]
+        класс, в котором определены процессы Extract/Load для конкретной схемы
+    conn_to_writer: Union[ConnectorToDds, ConnectorToDm],
+        класс, в котором определены процессы Extract/Load для конкретной схемы
+    transform_rules: Union[TransformSourcesToDds, TransformDdsToDm]
+        класс, в котором определены правила трансформирования (Transform) данных
+
+    Методы:
+        extract_data_from_sources_db() -> dict
+            Метод для реализации процесса Extract
+        transform_data_from_sources_db(raw_data: dict) -> dict
+            Метод для реализации процесса Transform
+        load_data_to_writer_db(transformed_data: dict) -> None
+            Метод для реализации процесса Load
+
+    Примечание:
+    Входные данные для подключения должны быть представлены в формате URI:
+        'postgresql://<username>:<password>@<host>:<port>/<database>'
     """
 
     def __init__(
             self,
             sources_conn_params: str,
             writer_conn_params: str,
-            conn_to_sources: Union[ConnectorToDds, ConnectorToSources, ConnectorToDm],
-            conn_to_writer: Union[ConnectorToDds, ConnectorToSources, ConnectorToDm],
-            transform_rules: Union[TransformRulesSourcesToDds, TransformRulesDdsToDm]
+            conn_to_sources: Union[ConnectorToDds, ConnectorToSources],
+            conn_to_writer: Union[ConnectorToDds, ConnectorToDm],
+            transform_rules: Union[TransformSourcesToDds, TransformDdsToDm]
         ) -> None:
         
         self.__sources_conn_params = sources_conn_params
@@ -29,67 +54,61 @@ class EtlProcessorController:
 
     def extract_data_from_sources_db(self) -> dict:
         """
-        Метод для извлечения (Extract) данных из исходной БД в схеме 'sources'.
+        Метод для извлечения (Extract) данных из исходной БД.
 
         Returns:
         Словарь с данными таблиц исходной БД.
         """
         
-        # Инициализируем переменную sources_data, чтобы хранить данные исходной БД.
-        extract_data = None
+        # Инициализируем переменную raw_data, чтобы хранить данные исходной БД.
+        raw_data = None
 
-        # Создаем объект ConnectorToSourcesSchema и используем менеджер контекста with
-        # для обеспечения автоматического закрытия соединения после использования.
+        # Создаем объект и используем менеджер контекста with для обеспечения 
+        # автоматического закрытия соединения после использования.
         with self.__conn_to_sources(self.__sources_conn_params) as sources:
 
-            # Используем метод get_tables_data(), чтобы получить данные таблиц исходной БД.
-            dds_data = sources.get_tables_data()
+            # Используем метод get_raw_data(), чтобы получить данные таблиц исходной БД.
+            raw_data = sources.get_raw_data()
 
         # Возвращаем полученные данные таблиц исходной БД.
-        return dds_data
+        return raw_data
 
 
-    def transform_data_from_sources_db(self, sources_data: dict) -> dict:
+    def transform_data_from_sources_db(self, raw_data: dict) -> dict:
         """
-        Метод для преобразования (Transform) данных из исходной БД в схеме 'sources'.
+        Метод для преобразования (Transform) данных из исходной БД.
 
         Входные параметры:
-        sources_data: dict
+        raw_data: dict
             Словарь с данными таблиц исходной БД.
 
         Returns:
-        Словарь с преобразованными данными для дальнейшей записи в схему 'dds'.
+        Словарь с преобразованными данными для дальнейшей записи.
         """
         
         # Инициализируем переменную, чтобы хранить преобразованные данные.
-        transformed_data = None
-        
-        # Создаем объект ConnectorToDdsSchema и используем менеджер контекста with
-        # для обеспечения автоматического закрытия соединения после использования.
-        with ConnectorToDatamartsSchema(self.__writer_conn_params) as dds:
+        transform_obj = self.__transform_rules(self.__writer_conn_params)
 
-            # Используем метод get_transformed_data() объекта dds, чтобы получить
-            # преобразованные данные, которые будут загружены в схему 'dds'.
-            transformed_data = dds.get_transformed_data(sources_data)
-        
-        # Возвращаем преобразованные данные
+        # Запускаем функцию преобразования данных по правилу из self.__transform_rules
+        transformed_data = transform_obj.get_transformed_data(raw_data)
+
+        # Возвращаем трансформированные данные
         return transformed_data
     
 
     def load_data_to_writer_db(self, transformed_data: dict) -> None:
         """
-        Метод для загрузки (Load) преобразованных данных в схему 'dds'.
+        Метод для загрузки (Load) преобразованных данных
 
         Входные параметры:
         transformed_data: dict
-            Словарь с преобразованными данными для таблиц в схеме 'dds'.
+            Словарь с преобразованными данными для таблиц.
         """
 
-        # Создаем объект ConnectorToDdsSchema и используем менеджер контекста with
-        # для обеспечения автоматического закрытия соединения после использования.
-        with ConnectorToDdsSchema(self.__writer_conn_params) as dds:
+        # Создаем объект и используем менеджер контекста with для обеспечения 
+        # автоматического закрытия соединения после использования.
+        with self.__conn_to_writer(self.__writer_conn_params) as writer:
 
-            # Используем метод load_transformed_data() объекта dds для загрузки
-            # преобразованных данных (transformed_data) в схему 'dds'.
-            dds.load_transformed_data(transformed_data)
-
+            # Используем метод load_transformed_data() для загрузки преобразованных 
+            # данных (transformed_data).
+            writer.load_transformed_data(transformed_data)
