@@ -10,12 +10,22 @@ Airflow-project/
 │  └─ docker-compose.yaml
 ├─ ddl/
 │  └─ dds_create.sql
+│  └─ dm_create.sql
+│  └─ temp_dds_create.sql
+│  └─ temp_dm_create.sql
 └─ airflow/
    ├─ plugins/
    ├─ logs/
    └─ dags/
-      ├─ load_dag.py
-      └─ load_db_data.py
+      ├─ airflowignore
+      ├─ dag_dds_to_dm.py
+      ├─ dag_sources_to_dds.py
+      ├─ dds_to_dm.py
+      ├─ sources_to_dds.py
+      └─ airflowignore_files/
+         ├─ plugins/
+         ├─ logs/
+         └─ dags/
 </code>
 </pre>
 
