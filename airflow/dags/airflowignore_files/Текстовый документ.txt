@@ -1,0 +1,8 @@
+-- Для "stock_total"
+SELECT sum(available_quantity) as stock_total
+FROM dds.stock
+group by available_on, product_id
+
+-- Для cost_per_item
+Нужно подумать и добавить where date = ...
+

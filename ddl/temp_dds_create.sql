@@ -1,33 +1,31 @@
 -- Создание схемы
-CREATE SCHEMA IF NOT EXISTS dds;
+CREATE SCHEMA IF NOT EXISTS temp_dds;
 
--- Создание таблицы "shop"
-CREATE TABLE IF NOT EXISTS dds.shop (
+CREATE TABLE IF NOT EXISTS temp_dds.shop (
     pos VARCHAR(50) PRIMARY KEY,
     pos_name VARCHAR(50)
 );
 
--- Создание таблицы "tran_shop"
-CREATE TABLE IF NOT EXISTS dds.tran_shop (
+CREATE TABLE IF NOT EXISTS temp_dds.tran_shop (
     transaction_id VARCHAR(50) PRIMARY KEY,
     pos VARCHAR(50),
     FOREIGN KEY (pos) REFERENCES dds.shop (pos)
 );
 
 -- Создание таблицы "brand" с первичным ключом "brand_id"
-CREATE TABLE IF NOT EXISTS dds.brand (
+CREATE TABLE IF NOT EXISTS temp_dds.brand (
     brand_id VARCHAR(50) PRIMARY KEY,
     brand VARCHAR(255)
 );
 
 -- Создание таблицы "category" с первичным ключом "category_id"
-CREATE TABLE IF NOT EXISTS dds.category (
+CREATE TABLE IF NOT EXISTS temp_dds.category (
     category_id VARCHAR(50) PRIMARY KEY,
     category_name VARCHAR(50)
 );
 
 -- Создание таблицы "product" с первичным ключом "product_id"
-CREATE TABLE IF NOT EXISTS dds.product (
+CREATE TABLE IF NOT EXISTS temp_dds.product (
     product_id VARCHAR(50) PRIMARY KEY,
     name_short VARCHAR(255),
     category_id VARCHAR(50),
@@ -38,7 +36,7 @@ CREATE TABLE IF NOT EXISTS dds.product (
 );
 
 -- Создание таблицы "stock"
-CREATE TABLE IF NOT EXISTS dds.stock (
+CREATE TABLE IF NOT EXISTS temp_dds.stock (
     available_on DATE,
     product_id VARCHAR(50),
     pos VARCHAR(50),
@@ -50,7 +48,7 @@ CREATE TABLE IF NOT EXISTS dds.stock (
 );
 
 -- Создание таблицы "transaction"
-CREATE TABLE IF NOT EXISTS dds.transaction (
+CREATE TABLE IF NOT EXISTS temp_dds.transaction (
     transaction_id VARCHAR(50),
     product_id VARCHAR(50),
     recorded_on TIMESTAMP,
@@ -63,8 +61,9 @@ CREATE TABLE IF NOT EXISTS dds.transaction (
     FOREIGN KEY (transaction_id) REFERENCES dds.tran_shop (transaction_id)
 );
 
+
 -- Создание таблицы "product_errors"
-CREATE TABLE IF NOT EXISTS dds.product_errors (
+CREATE TABLE IF NOT EXISTS temp_dds.product_errors (
     product_id VARCHAR(50),
     name_short VARCHAR(50),
     category_id VARCHAR(50),
@@ -74,7 +73,7 @@ CREATE TABLE IF NOT EXISTS dds.product_errors (
 );
 
 -- Создание таблицы "stock_errors"
-CREATE TABLE IF NOT EXISTS dds.stock_errors (
+CREATE TABLE IF NOT EXISTS temp_dds.stock_errors (
     available_on VARCHAR(50),
     product_id VARCHAR(50),
     pos VARCHAR(50),
@@ -87,7 +86,7 @@ CREATE TABLE IF NOT EXISTS dds.stock_errors (
 );
 
 -- Создание таблицы "transaction_errors"
-CREATE TABLE IF NOT EXISTS dds.transaction_errors (
+CREATE TABLE IF NOT EXISTS temp_dds.transaction_errors (
     transaction_id VARCHAR(50),
     product_id VARCHAR(50),
     recorded_on VARCHAR(50),
