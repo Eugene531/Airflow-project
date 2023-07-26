@@ -9,9 +9,9 @@ Airflow-project/
 ├─ docker/
 │  └─ docker-compose.yaml
 ├─ ddl/
-│  └─ dds_create.sql
-│  └─ dm_create.sql
-│  └─ temp_dds_create.sql
+│  ├─ dds_create.sql
+│  ├─ dm_create.sql
+│  ├─ temp_dds_create.sql
 │  └─ temp_dm_create.sql
 └─ airflow/
    ├─ plugins/
@@ -23,9 +23,14 @@ Airflow-project/
       ├─ dds_to_dm.py
       ├─ sources_to_dds.py
       └─ airflowignore_files/
-         ├─ plugins/
-         ├─ logs/
-         └─ dags/
+         ├─ etl_process_controller.py
+         ├─ conn_to_schem/
+         │  ├─ to_dds.py
+         │  ├─ to_dm.py
+         │  └─ to_sources.py
+         └─ transform_rules/
+            ├─ dds_to_dm.py
+            └─ sources_to_dds.py
 </code>
 </pre>
 
