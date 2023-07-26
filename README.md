@@ -68,8 +68,10 @@ Airflow-project/
 - **TransformDdsToDm** (файл - _dds_to_dm.py_) - правила трансформации данных, в процессе передачи их между сехмами 'dds' и 'dm'.
 
 4. Файлы '**sources_to_dds.py**' и '**dds_to_dm.py**'
+В них определена функция '**run_etl_process**', которая используются для контролирования процесса ETL (Extract, Transform, Load) применительно для конктертного процесса. Например, в файле 'sources_to_dds.py' эта функция запускает процессы Extract, Transform, Load между схемами: 'sources' и 'dds', а в файле 'dds_to_dm.py' эта функция запускает процесс ETL между схемами: 'dds' и 'dm'.
+Контроль процесса ETL реализуется при помощи передачи параметров для подключения БД, коннектора и правил трансформации в класс '**EtlProcessorController**' файла _etl_process_controller.py_.
 
-5. Файл '**etl_process_controller.py**'
+6. Файл '**etl_process_controller.py**'
 
 Для того, чтобы запустить процесс ETL между двумя БД, первым делом импортируются специальные классы, которые лежат в дирректории 'conn_to_schem'. В данном проекте это три класса: ConnectorToDds (файл: to_dds.py), ConnectorToDm (файл: to_dm.py) и ConnectorToSources (файл: to_sources.py). Они используются 
 
