@@ -1,4 +1,5 @@
 -- Создание схемы "temp_dm" для хранения данных Data Mart
+CREATE SCHEMA IF NOT EXISTS temp_dm;
 
 -- Создание таблицы "transactions_group_ymd" для хранения агрегированных данных по транзакциям, сгруппированным по дате
 CREATE TABLE IF NOT EXISTS temp_dm.transactions_group_ymd (
@@ -43,7 +44,8 @@ CREATE TABLE IF NOT EXISTS temp_dm.mean_monthly_product_stats (
 
 -- Создание таблицы "total_stats" для хранения общей статистики по продажам
 CREATE TABLE IF NOT EXISTS temp_dm.total_stats (
-    date DATE,                      -- Дата
+    date VARCHAR(50),                      -- Дата
+    pos VARCHAR(50),                -- ID магазина (POS)
     total_gross NUMERIC(10,2),      -- Общая выручка за месяц
     total_volume NUMERIC(10,2),     -- Общий объем продаж за месяц
     avg_check NUMERIC(10,2),        -- Средний чек за месяц
