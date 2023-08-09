@@ -2,23 +2,25 @@ import pandas as pd
 from datetime import datetime
 
 
-class TransformDdsToDm:
+class TransformData:
     """
     Используется для реализации процесса транфсормации (Transform) данных в 
     процессе их передачи из схемы 'dds' в схему 'dm'
 
-    Входные параметры:
-    db_conn_params: str
-        Данные для подключения к БД (вариативное использование)
-
     Методы:
         get_transformed_data(raw_data: dict) -> dict
             Метод для трансформации данных (raw_data) для нахождения метрик схемы 'dm'.
-            Возвращает словарь, uде ключ - имя таблицы, а значение - pandas.DataFrame
+            Возвращает словарь, где ключ - имя таблицы, а значение - pandas.DataFrame
     """
 
-    def __init__(self, db_conn_params: str=None) -> None:
-        self.__db_conn_params: str = db_conn_params
+    def __init__(self) -> None:
+        self.__tables_to_ret = [
+            'transactions_group_ymd',
+            'average_check',
+            'purchases',
+            'mean_monthly_product_stats',
+            'total_stats',
+        ]
 
 
     def get_transformed_data(self, raw_data: dict) -> dict:
@@ -51,12 +53,12 @@ class TransformDdsToDm:
         mean_monthly_product_stats = self.__mean_monthly_product_stats(
             transaction, product)
         
-        total_stats = self.__total_stats(transaction, shop)
+        total_stats = self.__total_stats(tran_shop, transaction)
 
         datas = [transactions_group_ymd, average_check, purchases, 
                  mean_monthly_product_stats, total_stats]
 
-        return dict(zip(self.__tables_to_overwrite, datas))
+        return dict(zip(self.__tables_to_ret, datas))
 
     
     def __transactions_group_ymd(self, 
@@ -81,11 +83,13 @@ class TransformDdsToDm:
         # Преобразование столбца 'recorded_on' в формат 'YYYY-MM'
         merged_data['date'] = merged_data['recorded_on'].dt.strftime('%Y-%m')
 
+        merged_data.rename(columns={'price': 'sum_price'}, inplace=True)
+
         # Выполнение агрегации данных
         aggregated_data = (
             merged_data
-            .groupby(['date', 'day', 'pos', 'category_name', 'name_short'])
-            .agg(sum_price=('price', 'sum'), sum_quantity=('quantity', 'sum'))
+            .groupby(['date', 'day', 'pos', 'category_name', 'name_short', 'sum_price'])
+            .agg(sum_quantity=('quantity', 'sum'))
             .reset_index()
         )
 
@@ -143,6 +147,7 @@ class TransformDdsToDm:
             'cost_per_item': 'first'
         }).reset_index()
 
+
         # Объединяем таблицы product и category по столбцу 'category_id' 
         # с помощью left join
         result = (
@@ -171,6 +176,12 @@ class TransformDdsToDm:
             ['product_id', 'recorded_on']).agg({
             'quantity': 'sum'
         }).reset_index()
+
+        result_year_month = pd.to_datetime(
+            result['available_on']).dt.strftime('%Y-%m')[0]
+
+        grouped_transactions = grouped_transactions[
+            grouped_transactions.recorded_on == result_year_month]
         
         # Объединяем result с grouped_transactions по столбцу 'product_id' с
         #  помощью left join
@@ -221,12 +232,12 @@ class TransformDdsToDm:
         all_product_month_combinations = pd.MultiIndex.from_product([
             product['product_id'].unique(), transaction_data['date'].unique()], 
             names=['product_id', 'date'])
-
+        
         # Создаем DataFrame с комбинациями и объединяем его с результатом агрегации 
         # по 'product_id' и 'month' с помощью right join
         merged_data = all_product_month_combinations.to_frame(index=False).merge(
             average_quantity_per_month, on=['product_id', 'date'], how='left')
-
+        
         # Переименовываем поле 'price' в 'avg_price'
         merged_data.rename(columns={'price': 'avg_price'}, inplace=True)
 
@@ -242,7 +253,7 @@ class TransformDdsToDm:
         return merged_data
 
         
-    def __total_stats(self, transaction, shop):
+    def __total_stats(self, tran_shop, transaction):
         """
         Метод для формирования таблицы 'total_stats'
         """
@@ -253,26 +264,30 @@ class TransformDdsToDm:
         
         filtered_transactions = transaction_data[
             transaction_data['order_type_id'] == 'BUY']
+        
+        filtered_transactions = filtered_transactions.merge(tran_shop, on='transaction_id', how='left')
 
         # Создаем новый столбец 'total_gross', в котором хранится 'quantity' * 'price'
         filtered_transactions['total_gross'] = filtered_transactions['quantity']\
               * filtered_transactions['price']
 
-        average_quantity_per_month = filtered_transactions.groupby(['date']).agg({
+        average_quantity_per_month = filtered_transactions.groupby(['date', 'pos']).agg({
             'total_gross': 'sum',
-            'quantity': 'sum'
+            'quantity': 'sum',
+            'transaction_id': 'count'
         }).reset_index()
-
-        # Получаем количество уникальных значений 'pos' из таблицы 'shop'
-        unique_pos_count = shop['pos'].nunique()
 
         # Вычисляем средний чек ('avg_check')
         average_quantity_per_month['avg_check'] =\
-            average_quantity_per_month['total_gross'] / unique_pos_count
+            round(average_quantity_per_month['total_gross'] / average_quantity_per_month['transaction_id'], 0)
+        
+        average_quantity_per_month.drop(columns=['transaction_id'], inplace=True)
 
         # Переименовываем поле 'quantity' в 'total_volume'
         average_quantity_per_month.rename(
             columns={'quantity': 'total_volume'}, inplace=True)
+
+        transaction_data['recorded_on'] = transaction_data['recorded_on'].dt.strftime('%Y-%m-%d')
 
         # Добавление столбца "UPDATE_DATE" с текущей датой и временем
         average_quantity_per_month['UPDATE_DATE'] = datetime.now()

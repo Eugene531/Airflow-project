@@ -1,16 +1,10 @@
 import pandas as pd
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 
-class TransformSourcesToDds:
+class TransformData:
     """
     Используется для реализации процесса транфсормации (Transform) данных в 
     процессе их передачи из схемы 'sources' в схему 'dss'
-
-    Входные параметры:
-    db_conn_params: str
-        Данные для подключения к БД (вариативное использование)
 
     Методы:
         get_transformed_data(raw_data: dict) -> dict
@@ -18,11 +12,11 @@ class TransformSourcesToDds:
             Возвращает словарь, где ключ - имя таблицы, а значение - pandas.DataFrame
     """
 
-    def __init__(self, db_conn_params: str=None) -> None:
-        self.__db_conn_params: str = db_conn_params
-
+    def __init__(self) -> None:
         # Таблицы, которые будут использоваться для трансформации данных
         self.__tables_for_transform: list = [
+            'shop',
+            'tran_shop',
             'brand',               # Таблица с данными о брендах
             'category',            # Таблица с данными о категориях
             'product',             # Таблица с данными о продуктах
@@ -48,34 +42,6 @@ class TransformSourcesToDds:
         self.__product_errors: pd.DataFrame = pd.DataFrame()
         self.__stock_errors: pd.DataFrame = pd.DataFrame()
         self.__transaction_errors: pd.DataFrame = pd.DataFrame()
-
-        # Значения для неизменяемых таблиц
-        self.__tran_shop, self.__shop = self.__get_tran_shop_data()
-
-
-    def __get_tran_shop_data(self) -> dict:
-        """
-        Метод для получения данных таблиц 'tran_shop', 'shop' из схемы 'dds'
-        """
-
-        # Создаем объект сессии (engine) для подключения к БД.
-        engine = create_engine(self.__db_conn_params)
-
-        # Создаем объект сессии (Session) для работы с базой данных
-        Session = sessionmaker(bind=engine)
-
-        tables = ['tran_shop', 'shop']
-
-        # Начинаем транзакцию в базе данных
-        with Session() as session:
-            with session.begin():
-                # Формируем SELECT SQL-запросы для таблиц 'tran_shop' и 'shop'
-                sqls = [f'SELECT * FROM dds.{tab}' for tab in tables]
-
-                # Выполняем SQL-запросы и получаем данные таблиц в формате pandas DataFrame
-                tables_data = [pd.read_sql_query(sql, session.bind) for sql in sqls]
-
-        return tables_data
     
 
     def get_transformed_data(self, raw_data: dict) -> dict:
@@ -273,6 +239,16 @@ class TransformSourcesToDds:
         # Конвертация даты из числового формата в обычный формат даты
         self.__stock['available_on'] = pd.to_datetime(
             self.__stock['available_on'], origin='1899-12-30', unit='D'
+            )
+        
+        # Конвертация даты из строкового формата в числовой формат
+        self.__stock_errors['available_on'] = pd.to_numeric(
+            self.__stock_errors['available_on'], errors='coerce'
+            )
+
+        # Конвертация даты из числового формата в обычный формат даты
+        self.__stock_errors['available_on'] = pd.to_datetime(
+            self.__stock_errors['available_on'], origin='1899-12-30', unit='D'
             )
 
         # Удаляем дубликаты по первичному ключу ('available_on', 'product_id', 'pos')

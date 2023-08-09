@@ -1,114 +1,104 @@
-from typing import Union
-
-from .conn_to_schem.to_dds import ConnectorToDds
-from .conn_to_schem.to_sources import ConnectorToSources
-from .conn_to_schem.to_dm import ConnectorToDm
-from .transform_rules.sources_to_dds import TransformSourcesToDds
-from .transform_rules.dds_to_dm import TransformDdsToDm
+from .extract_and_load.connector import Connector
+from .transform_rules.main_transform_rules import TransformRules
 
 
 class EtlProcessorController:
     """
-    Используется для управления процессами ETL (Extract, Transform, Load)
+    Контроллер для управления процессами ETL (Extract, Transform, Load).
 
     Входные параметры:
-    sources_conn_params: str
-        данные для подключения к исходной БД
-    writer_conn_params: str
-        данные для подключения к БД для записи
-    conn_to_sources: Union[ConnectorToDds, ConnectorToSources]
-        класс, в котором определены процессы Extract/Load для конкретной схемы
-    conn_to_writer: Union[ConnectorToDds, ConnectorToDm],
-        класс, в котором определены процессы Extract/Load для конкретной схемы
-    transform_rules: Union[TransformSourcesToDds, TransformDdsToDm]
-        класс, в котором определены правила трансформирования (Transform) данных
-
+        read_db_data: dict
+            Параметры для взаимодействия с БД для чтения в формате: {
+                'config': данные для подключения к БД в форме URI, 
+                'tables': таблицы для чтения данных,
+                'schema': схема БД (необязательный параметр, поумолчанию public)
+                }.
+        write_db_data: dict
+            Параметры для взаимодействия с БД для записи в формате: {
+                'config': данные для подключения к БД в форме URI, 
+                'tables': таблицы для записи данных,
+                'schema': схема БД (необязательный параметр, поумолчанию public)
+                }.
+        modul: str
+            Имя модуля с правилами трансформации.
+    
     Методы:
-        extract_data_from_sources_db() -> dict
-            Метод для реализации процесса Extract
-        transform_data_from_sources_db(raw_data: dict) -> dict
-            Метод для реализации процесса Transform
-        load_data_to_writer_db(transformed_data: dict) -> None
-            Метод для реализации процесса Load
+        extract_data() -> dict:
+            Извлекает сырые данные из исходной БД.
+        transform_data(raw_data: dict) -> dict:
+            Преобразует данные с использованием правил трансформации.
+        load_data(transformed_data: dict):
+            Загружает преобразованные данные в целевую БД.
 
     Примечание:
-    Входные данные для подключения должны быть представлены в формате URI:
-        'postgresql://<username>:<password>@<host>:<port>/<database>'
+        Входные данные для подключения должны быть представлены в формате URI:
+            'postgresql://<username>:<password>@<host>:<port>/<database>'
     """
 
-    def __init__(
-            self,
-            sources_conn_params: str,
-            writer_conn_params: str,
-            conn_to_sources: Union[ConnectorToDds, ConnectorToSources],
-            conn_to_writer: Union[ConnectorToDds, ConnectorToDm],
-            transform_rules: Union[TransformSourcesToDds, TransformDdsToDm]
-        ) -> None:
-        
-        self.__sources_conn_params = sources_conn_params
-        self.__writer_conn_params = writer_conn_params
-        self.__conn_to_sources = conn_to_sources
-        self.__conn_to_writer = conn_to_writer
-        self.__transform_rules = transform_rules
+    def __init__(self, read_db_data: dict, write_db_data: dict, modul: str) -> None:
+        self.__read_db_data = read_db_data
+        self.__write_db_data = write_db_data
+        self.__modul = modul
 
 
-    def extract_data_from_sources_db(self) -> dict:
+    def extract_data(self) -> dict:
         """
-        Метод для извлечения (Extract) данных из исходной БД.
+        Метод для извлечения (Extract) сырых данных.
 
         Returns:
-        Словарь с данными таблиц исходной БД.
+        Словарь с данными, где ключи - имена таблиц, значения - DataFrames.
         """
         
-        # Инициализируем переменную raw_data, чтобы хранить данные исходной БД.
+        # Инициализируем переменную raw_data, чтобы хранить сырые данные.
         raw_data = None
 
-        # Создаем объект и используем менеджер контекста with для обеспечения 
-        # автоматического закрытия соединения после использования.
-        with self.__conn_to_sources(self.__sources_conn_params) as sources:
+        # Создаем объект Connector для извлечения данных
+        ExtractConnection = Connector(**self.__read_db_data)
 
-            # Используем метод get_raw_data(), чтобы получить данные таблиц исходной БД.
-            raw_data = sources.get_raw_data()
+        # Используем менеджер контекста для подключения
+        with ExtractConnection as Connection:
+            # Извлекаем сырые данные
+            raw_data = Connection.extract_data()
 
-        # Возвращаем полученные данные таблиц исходной БД.
+        # Возвращаем сырые данные
         return raw_data
+    
 
-
-    def transform_data_from_sources_db(self, raw_data: dict) -> dict:
+    def transform_data(self, raw_data: dict) -> dict:
         """
-        Метод для преобразования (Transform) данных из исходной БД.
+        Метод для преобразования (Transform) сырых данных по правилам трансформации.
 
         Входные параметры:
-        raw_data: dict
-            Словарь с данными таблиц исходной БД.
+            raw_data: dict
+                Словарь с сырыми данными.
 
         Returns:
         Словарь с преобразованными данными для дальнейшей записи.
         """
-        
-        # Инициализируем переменную, чтобы хранить преобразованные данные.
-        transform_obj = self.__transform_rules(self.__writer_conn_params)
 
-        # Запускаем функцию преобразования данных по правилу из self.__transform_rules
-        transformed_data = transform_obj.get_transformed_data(raw_data)
+        # Создаем объект TransformRules
+        TransformDataRules = TransformRules(self.__modul)
 
-        # Возвращаем трансформированные данные
+        # Преобразуем данные при помощи метода get_transformed_data
+        transformed_data = TransformDataRules.get_transformed_data(raw_data)
+
+        # Возвращаем преобразованные данные
         return transformed_data
     
 
-    def load_data_to_writer_db(self, transformed_data: dict) -> None:
+    def load_data(self, transformed_data: dict) -> None:
         """
-        Метод для загрузки (Load) преобразованных данных
+        Метод для загрузки (Load) преобразованных данных.
 
         Входные параметры:
-        transformed_data: dict
-            Словарь с преобразованными данными для таблиц.
+            transformed_data: dict
+                Словарь с преобразованными данными, где ключи - имена таблиц, 
+                значения - DataFrames.
         """
 
-        # Создаем объект и используем менеджер контекста with для обеспечения 
-        # автоматического закрытия соединения после использования.
-        with self.__conn_to_writer(self.__writer_conn_params) as writer:
-
-            # Используем метод load_transformed_data() для загрузки преобразованных 
-            # данных (transformed_data).
-            writer.load_transformed_data(transformed_data)
+        # Создаем объект Connector для загрузки данных
+        LoadConnection = Connector(**self.__write_db_data)
+        # Используем менеджер контекста для подключения
+        with LoadConnection as Connection:
+            # Загружаем преобразованные данные
+            Connection.load_data(transformed_data)

@@ -1,44 +1,44 @@
 import sys
 
 from airflowignore_files.etl_process_controller import EtlProcessorController
-from airflowignore_files.conn_to_schem.to_dds import ConnectorToDds
-from airflowignore_files.conn_to_schem.to_dm import ConnectorToDm
-from airflowignore_files.transform_rules.dds_to_dm \
-    import TransformDdsToDm
 
 
-def run_etl_process(sources_conn_params: str, writer_conn_params: str) -> None:
+def run_etl(read_db_data: str, write_db_data: str, modul: str) -> None:
     """
-    Запускает процесс ETL (extract, transform, load) между двумя базами данных.
+    Запускает процессы ETL (Extract, Transform, Load) между 'dds' и 'dm'.
 
     Входные параметры:
-        sources_conn_params: str
-            Параметры подключения к исходной БД для чтения информации.
-        writer_conn_params: str
-            Параметры подключения к целевой БД для записи.
+        read_db_data: dict
+            Параметры для взаимодействия с БД для чтения в формате: {
+                'config': данные для подключения к БД в форме URI, 
+                'tables': таблицы для чтения данных,
+                'schema': схема БД (необязательный параметр, поумолчанию public)
+                }.
+        write_db_data: dict
+            Параметры для взаимодействия с БД для записи в формате: {
+                'config': данные для подключения к БД в форме URI, 
+                'tables': таблицы для записи данных,
+                'schema': схема БД (необязательный параметр, поумолчанию public)
+                }.
+        modul: str
+            Имя модуля с правилами трансформации.
 
     Примечание:
-    Входные данные для подключения должны быть представлены в формате URI:
-        'postgresql://<username>:<password>@<host>:<port>/<database>'
+        Входные данные для подключения должны быть представлены в формате URI:
+            'postgresql://<username>:<password>@<host>:<port>/<database>'
     """
 
     # Создаем экземпляр класса EtlProcessorController для обработки ETL-процесса.
-    etl = EtlProcessorController(
-        sources_conn_params, 
-        writer_conn_params,
-        ConnectorToDds,
-        ConnectorToDm,
-        TransformDdsToDm
-        )
+    etl = EtlProcessorController(read_db_data, write_db_data, modul)
     
-    # Извлекаем данные из исходной БД.
-    data = etl.extract_data_from_sources_db()
+    # Извлекаем сырые данные
+    data = etl.extract_data()
 
-    # Преобразуем данные из исходной БД по правилам из 'TransformSourcesToDds'.
-    transformed_data = etl.transform_data_from_sources_db(data)
+    # Преобразуем сырые данные по правилам из модуля 'modul'
+    transformed_data = etl.transform_data(data)
 
-    # Загружаем преобразованные данные в целевую БД.
-    etl.load_data_to_writer_db(transformed_data)
+    # Загружаем преобразованные данные
+    etl.load_data(transformed_data)
 
 
 if __name__ == '__main__':
@@ -46,7 +46,44 @@ if __name__ == '__main__':
         print("Нужно передать данные подключения к двум БД (1 - read, 2 - write)")
         sys.exit(1)
 
-    sources_db_conn_params = sys.argv[1]
-    writer_db_conn_params = sys.argv[2]
+    read_db_conn_params = sys.argv[1]
+    write_db_conn_params = sys.argv[2]
 
-    run_etl_process(writer_db_conn_params, writer_db_conn_params)
+    schema_read = 'dds'
+    schema_write = 'dm'
+    modul = 'dds_to_dm'
+
+    # Список таблиц для чтения из исходной БД
+    read_tables = [
+        'brand',               # Таблица с данными о брендах
+        'category',            # Таблица с данными о категориях
+        'product',             # Таблица с данными о продуктах
+        'stock',               # Таблица с данными о складах
+        'transaction',         # Таблица с данными о транзакциях
+    ]
+
+    # Список таблиц для записи в целевую БД
+    write_tables = [
+        'transactions_group_ymd',
+        'average_check',
+        'purchases',
+        'mean_monthly_product_stats',
+        'total_stats',
+    ]
+
+    # Параметры для чтения данных из исходной БД
+    read_db_data = {
+        'config': read_db_conn_params,
+        'tables': read_tables,
+        'schema': schema_read,
+    }
+
+    # Параметры для записи данных в целевую БД
+    write_db_data = {
+        'config': write_db_conn_params,
+        'tables': write_tables,
+        'schema': schema_write,
+    }
+
+    # Запускаем ETL-процесс
+    run_etl(read_db_data, write_db_data, modul)
