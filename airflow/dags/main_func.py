@@ -6,7 +6,7 @@ from airflowignore_files.etl_controller.etl_process_controller import EtlProcess
 
 def run_etl(read_db_data: dict, write_db_data: dict, module: str) -> None:
     """
-    Запускает процессы ETL (Extract, Transform, Load) между 'dds' и 'dm'.
+    Запускает процессы ETL (Extract, Transform, Load) между двумя БД.
 
     Входные параметры:
         read_db_data: dict
@@ -35,7 +35,7 @@ def run_etl(read_db_data: dict, write_db_data: dict, module: str) -> None:
     # Извлекаем сырые данные
     data = etl.extract_data()
 
-    # Преобразуем сырые данные по правилам из модуля 'modul'
+    # Преобразуем сырые данные по правилам из 'module'
     transformed_data = etl.transform_data(data)
 
     # Загружаем преобразованные данные
@@ -55,6 +55,7 @@ if __name__ == '__main__':
 
     process_params_path = f'airflowignore_files.enums.{sys.argv[3]}'
     ProcessParams = import_module(process_params_path).ProcessParams
+    
     ProcessParams.read_db_data.value['config'] = read_db_conn_params
     ProcessParams.write_db_data.value['config'] = write_db_conn_params
 
