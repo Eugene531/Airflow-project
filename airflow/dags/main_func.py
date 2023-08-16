@@ -1,9 +1,10 @@
 import sys
+from importlib import import_module
 
-from airflowignore_files.etl_process_controller import EtlProcessorController
+from airflowignore_files.etl_controller.etl_process_controller import EtlProcessorController
 
 
-def run_etl(read_db_data: str, write_db_data: str, modul: str) -> None:
+def run_etl(read_db_data: dict, write_db_data: dict, module: str) -> None:
     """
     Запускает процессы ETL (Extract, Transform, Load) между 'dds' и 'dm'.
 
@@ -20,7 +21,7 @@ def run_etl(read_db_data: str, write_db_data: str, modul: str) -> None:
                 'tables': таблицы для записи данных,
                 'schema': схема БД (необязательный параметр, поумолчанию public)
                 }.
-        modul: str
+        module: str
             Имя модуля с правилами трансформации.
 
     Примечание:
@@ -29,7 +30,7 @@ def run_etl(read_db_data: str, write_db_data: str, modul: str) -> None:
     """
 
     # Создаем экземпляр класса EtlProcessorController для обработки ETL-процесса.
-    etl = EtlProcessorController(read_db_data, write_db_data, modul)
+    etl = EtlProcessorController(read_db_data, write_db_data, module)
     
     # Извлекаем сырые данные
     data = etl.extract_data()
@@ -42,48 +43,24 @@ def run_etl(read_db_data: str, write_db_data: str, modul: str) -> None:
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print("Нужно передать данные подключения к двум БД (1 - read, 2 - write)")
+    if len(sys.argv) != 4:
+        print("Нужно передать следующие данные:\n"
+              "1 - данные для подключения к БД для чтения;\n"
+              "2 - данные для подключения к БД для записи;\n"
+              "3 - имя файла, в котором определен класс ProcessParams (enum).")
         sys.exit(1)
 
     read_db_conn_params = sys.argv[1]
     write_db_conn_params = sys.argv[2]
 
-    schema_read = 'dds'
-    schema_write = 'dm'
-    modul = 'dds_to_dm'
-
-    # Список таблиц для чтения из исходной БД
-    read_tables = [
-        'brand',               # Таблица с данными о брендах
-        'category',            # Таблица с данными о категориях
-        'product',             # Таблица с данными о продуктах
-        'stock',               # Таблица с данными о складах
-        'transaction',         # Таблица с данными о транзакциях
-    ]
-
-    # Список таблиц для записи в целевую БД
-    write_tables = [
-        'transactions_group_ymd',
-        'average_check',
-        'purchases',
-        'mean_monthly_product_stats',
-        'total_stats',
-    ]
-
-    # Параметры для чтения данных из исходной БД
-    read_db_data = {
-        'config': read_db_conn_params,
-        'tables': read_tables,
-        'schema': schema_read,
-    }
-
-    # Параметры для записи данных в целевую БД
-    write_db_data = {
-        'config': write_db_conn_params,
-        'tables': write_tables,
-        'schema': schema_write,
-    }
+    process_params_path = f'airflowignore_files.enums.{sys.argv[3]}'
+    ProcessParams = import_module(process_params_path).ProcessParams
+    ProcessParams.read_db_data.value['config'] = read_db_conn_params
+    ProcessParams.write_db_data.value['config'] = write_db_conn_params
 
     # Запускаем ETL-процесс
-    run_etl(read_db_data, write_db_data, modul)
+    run_etl(
+        ProcessParams.read_db_data.value, 
+        ProcessParams.write_db_data.value, 
+        ProcessParams.module.value
+        )

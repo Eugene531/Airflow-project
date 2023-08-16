@@ -1,5 +1,5 @@
-from .extract_and_load.connector import Connector
-from .transform_rules.main_transform_rules import TransformRules
+from ..connector_to_db.connector import Connector
+from ..transform_rules.main_transform_rules import TransformRules
 
 
 class EtlProcessorController:
@@ -35,10 +35,10 @@ class EtlProcessorController:
             'postgresql://<username>:<password>@<host>:<port>/<database>'
     """
 
-    def __init__(self, read_db_data: dict, write_db_data: dict, modul: str) -> None:
+    def __init__(self, read_db_data: dict, write_db_data: dict, module: str) -> None:
         self.__read_db_data = read_db_data
         self.__write_db_data = write_db_data
-        self.__modul = modul
+        self.__module = module
 
 
     def extract_data(self) -> dict:
@@ -77,7 +77,7 @@ class EtlProcessorController:
         """
 
         # Создаем объект TransformRules
-        TransformDataRules = TransformRules(self.__modul)
+        TransformDataRules = TransformRules(self.__module)
 
         # Преобразуем данные при помощи метода get_transformed_data
         transformed_data = TransformDataRules.get_transformed_data(raw_data)
